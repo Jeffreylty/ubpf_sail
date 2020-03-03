@@ -30,7 +30,7 @@ val execute : ast -> unit effect {rreg, wreg}
 
 union clause ast = ADDI : (regbits, bits(32))
 
-function clause decode (regbits @ rt : regbits @ imm :32) =
+function clause decode (imm : bits(32) @ 0b0000000000000000 @ 0b0000 @ rt : regbits @ 0b111) =
   Some(ADDI(rt, imm))
 
 function clause execute (ADDI(rt, imm)) =
@@ -45,7 +45,7 @@ function clause execute (ADDI(rt, imm)) =
 
 union clause ast = ADD : (regbits, regbits)
 
-function clause decode (regbits @ 0b000 @ rd : regbits @ 0b000 @ rs :regbits @ 0b00000 @ 0b100000) =
+function clause decode (imm : bits(32) @ 0b0000000000000000 @ rs : regbits @ rd : regbits @ 0b1111) =
   Some(ADD(rd, rs))
 
 
