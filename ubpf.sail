@@ -15,6 +15,23 @@ type xlenbits = bits(xlen)
 register PC : xlenbits
 register nextPC : xlenbits
 
+infix 4 <_u
+infix 4 >_u
+infix 4 >=_u
+infix 4 <=_u
+
+
+val operator <_u  : forall 'n. (bits('n), bits('n)) -> bool
+val operator >_u  : forall 'n. (bits('n), bits('n)) -> bool
+val operator >=_u : forall 'n. (bits('n), bits('n)) -> bool
+val operator <=_u : forall 'n. (bits('n), bits('n)) -> bool
+
+function operator <_u  (x, y) = unsigned(x) < unsigned(y)
+function operator >_u  (x, y) = unsigned(x) > unsigned(y)
+function operator >=_u (x, y) = unsigned(x) >= unsigned(y)
+function operator <=_u (x, y) = unsigned(x) <= unsigned(y)
+
+
 infix 7 >>
 infix 7 <<
 
@@ -27,7 +44,31 @@ val "shiftr" : forall 'm 'n, 'n >= 0. (bits('m), atom('n)) -> bits('m)
 overload operator >> = {shift_bits_right, shiftr}
 overload operator << = {shift_bits_left, shiftl}
 
-/* Register of 64-vit in length */
+val "eq_anything" : forall ('a : Type). ('a, 'a) -> bool
+
+
+
+overload operator == = {eq_string, eq_anything}
+
+val not_bit : bit -> bit
+
+function not_bit(b) = if b == bitone then bitzero else bitone
+
+overload ~ = {not_bool, not_vec, not_bit}
+overload operator - = {sub_range, sub_int, sub_vec, sub_vec_int}
+overload operator ^ = {xor_vec, int_power, concat_str}
+overload operator / = {ediv_int, div}
+
+
+val "add_int" : forall 'n 'm 'o 'p.
+  (range('n, 'm), range('o, 'p)) -> range('n + 'o, 'm + 'p)
+
+val "add_vec" : forall 'n. (bits('n), bits('n)) -> bits('n)
+
+val  "add_vec_int" : forall 'n. (bits('n), int) -> bits('n)
+overload operator + = {add_range, add_int, add_vec, add_vec_int}
+
+/* Register of 64-bit in length */
 register Xs : vector(64, dec, xlenbits)
 
 type regbits = bits(4)
@@ -447,7 +488,74 @@ function clause execute (ARSH(dst,src)) =
     X(dst) = result
   } 
 
+/* EBPF_OP_JA */
 
+union clause ast = JA : bits(16)
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ 0b0000 @ 0b0000 @ 0b11001111) =
+  Some(JA(offset))
+
+function clause execute (JA(offset)) =
+  {
+    PC = PC + EXTS(offset);
+  } 
+
+/* EBPF_OP_JEQ_IMM */
+union clause ast = JEQIMM : (regbits, bits(32), bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+  Some(JEQIMM(dst, imm, offset))
+
+function clause execute (JEQIMM(dst, imm, offset)) =
+  {
+    let opA = X(dst);
+    let imm_ext : xlenbits = EXTS(imm);
+    if opA == imm_ext then 
+      PC = PC + EXTS(offset);
+  } 
+
+
+/* EBPF_OP_JEQ_REG */
+union clause ast = JEQ : (regbits, bits(16), regbits)
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+  Some(JEQ(dst, offset, src))
+
+function clause execute (JEQ(dst, offset, src)) =
+  {
+    let opA = X(dst);
+    let opB = X(src);
+    if opA == opB then 
+      PC = PC + EXTS(offset);
+  } 
+
+/* EBPF_OP_JGT_IMM */
+union clause ast = JGTIMM : (regbits, bits(32), bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+  Some(JGTIMM(dst, imm, offset))
+
+function clause execute (JGTIMM(dst, imm, offset)) =
+  {
+    let opA = X(dst);
+    let imm_ext : xlenbits = EXTS(imm);
+    if opA >_u imm_ext then 
+      PC = PC + EXTS(offset);
+  } 
+
+/* EBPF_OP_JGT_REG */
+union clause ast = JGT : (regbits, bits(16), regbits)
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+  Some(JGT(dst, offset, src))
+
+function clause execute (JGT(dst, offset, src)) =
+  {
+    let opA = X(dst);
+    let opB = X(src);
+    if opA  >_u opB then 
+      PC = PC + EXTS(offset);
+  } 
 
 
 
