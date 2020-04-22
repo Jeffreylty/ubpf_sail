@@ -557,11 +557,89 @@ function clause execute (JGT(dst, offset, src)) =
       PC = PC + EXTS(offset);
   } 
 
+/* EBPF_OP_JGE_IMM */
+union clause ast = JGEIMM : (regbits, bits(32), bits(16))
 
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+  Some(JGEIMM(dst, imm, offset))
 
+function clause execute (JGEIMM(dst, imm, offset)) =
+  {
+    let opA = X(dst);
+    let imm_ext : xlenbits = EXTS(imm);
+    if opA >=_u imm_ext then 
+      PC = PC + EXTS(offset);
+  } 
 
+/* EBPF_OP_JGE_REG */
+union clause ast = JGE : (regbits, bits(16), regbits)
 
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+  Some(JGE(dst, offset, src))
 
+function clause execute (JGE(dst, offset, src)) =
+  {
+    let opA = X(dst);
+    let opB = X(src);
+    if opA  >=_u opB then 
+      PC = PC + EXTS(offset);
+  } 
+
+/* EBPF_OP_JLT_IMM */
+union clause ast = JLTIMM : (regbits, bits(32), bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+  Some(JLTIMM(dst, imm, offset))
+
+function clause execute (JLTIMM(dst, imm, offset)) =
+  {
+    let opA = X(dst);
+    let imm_ext : xlenbits = EXTS(imm);
+    if opA <_u imm_ext then 
+      PC = PC + EXTS(offset);
+  } 
+
+/* EBPF_OP_JLT_REG */
+union clause ast = JLT : (regbits, bits(16), regbits)
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+  Some(JLT(dst, offset, src))
+
+function clause execute (JLT(dst, offset, src)) =
+  {
+    let opA = X(dst);
+    let opB = X(src);
+    if opA  <_u opB then 
+      PC = PC + EXTS(offset);
+  } 
+
+/* EBPF_OP_JLE_IMM */
+union clause ast = JLEIMM : (regbits, bits(32), bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+  Some(JLEIMM(dst, imm, offset))
+
+function clause execute (JLEIMM(dst, imm, offset)) =
+  {
+    let opA = X(dst);
+    let imm_ext : xlenbits = EXTS(imm);
+    if opA <=_u imm_ext then 
+      PC = PC + EXTS(offset);
+  } 
+
+/* EBPF_OP_JLE_REG */
+union clause ast = JLE : (regbits, bits(16), regbits)
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+  Some(JGE(dst, offset, src))
+
+function clause execute (JGE(dst, offset, src)) =
+  {
+    let opA = X(dst);
+    let opB = X(src);
+    if opA  <=_u opB then 
+      PC = PC + EXTS(offset);
+  } 
 
 
 
