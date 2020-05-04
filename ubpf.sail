@@ -58,6 +58,8 @@ val "shiftr" : forall 'm 'n, 'n >= 0. (bits('m), atom('n)) -> bits('m)
 overload operator >> = {shift_bits_right, shiftr}
 overload operator << = {shift_bits_left, shiftl}
 
+overload print = {print_endline}
+
 val "eq_anything" : forall ('a : Type). ('a, 'a) -> bool
 
 val cast bit_to_bool : bit -> bool
@@ -124,12 +126,16 @@ function wX(r, v) =
 overload X = {rX, wX}
 
 val EXTS : forall 'n 'm, 'm >= 'n. (implicit('m), bits('n)) -> bits('m)
+val EXTZ : forall 'n 'm, 'm >= 'n. (implicit('m), bits('n)) -> bits('m)
+
+function EXTS(m, v) = sail_sign_extend(v, m)
+function EXTZ(m, v) = sail_zero_extend(v, m)
 
 scattered union ast
 
 val decode : bits(64) -> option(ast) effect pure
 
-val execute : ast -> unit effect {rreg, wreg,rmem}
+val execute : ast -> unit effect {rreg, wreg,rmem, wmv}
 val MAX : forall 'n, 'n >= 0 . atom('n) -> atom(2 ^ 'n - 1) effect pure
 
 /*!
@@ -545,7 +551,7 @@ function clause execute (ARSH(dst,src)) =
 
 union clause ast = JA : bits(16)
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ 0b0000 @ 0b0000 @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ 0b0000 @ 0b0000 @ 0b00000101) =
   Some(JA(offset))
 
 function clause execute (JA(offset)) =
@@ -556,13 +562,13 @@ function clause execute (JA(offset)) =
 /* EBPF_OP_JEQ_IMM */
 union clause ast = JEQIMM : (regbits, bits(32), bits(16))
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b00010101) =
   Some(JEQIMM(dst, imm, offset))
 
 function clause execute (JEQIMM(dst, imm, offset)) =
   {
     let opA = X(dst);
-    let imm_ext : xlenbits = EXTS(imm);
+    let imm_ext : xlenbits = EXTZ(imm);
     if opA == imm_ext then 
       PC = PC + EXTS(offset);
   } 
@@ -571,7 +577,7 @@ function clause execute (JEQIMM(dst, imm, offset)) =
 /* EBPF_OP_JEQ_REG */
 union clause ast = JEQ : (regbits, bits(16), regbits)
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b00011101) =
   Some(JEQ(dst, offset, src))
 
 function clause execute (JEQ(dst, offset, src)) =
@@ -585,13 +591,13 @@ function clause execute (JEQ(dst, offset, src)) =
 /* EBPF_OP_JGT_IMM */
 union clause ast = JGTIMM : (regbits, bits(32), bits(16))
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b00100101) =
   Some(JGTIMM(dst, imm, offset))
 
 function clause execute (JGTIMM(dst, imm, offset)) =
   {
     let opA = X(dst);
-    let imm_ext : xlenbits = EXTS(imm);
+    let imm_ext : xlenbits = EXTZ(imm);
     if opA >_u imm_ext then 
       PC = PC + EXTS(offset);
   } 
@@ -599,7 +605,7 @@ function clause execute (JGTIMM(dst, imm, offset)) =
 /* EBPF_OP_JGT_REG */
 union clause ast = JGT : (regbits, bits(16), regbits)
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b00101101) =
   Some(JGT(dst, offset, src))
 
 function clause execute (JGT(dst, offset, src)) =
@@ -613,13 +619,13 @@ function clause execute (JGT(dst, offset, src)) =
 /* EBPF_OP_JGE_IMM */
 union clause ast = JGEIMM : (regbits, bits(32), bits(16))
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b00110101) =
   Some(JGEIMM(dst, imm, offset))
 
 function clause execute (JGEIMM(dst, imm, offset)) =
   {
     let opA = X(dst);
-    let imm_ext : xlenbits = EXTS(imm);
+    let imm_ext : xlenbits = EXTZ(imm);
     if opA >=_u imm_ext then 
       PC = PC + EXTS(offset);
   } 
@@ -627,7 +633,7 @@ function clause execute (JGEIMM(dst, imm, offset)) =
 /* EBPF_OP_JGE_REG */
 union clause ast = JGE : (regbits, bits(16), regbits)
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b00111101) =
   Some(JGE(dst, offset, src))
 
 function clause execute (JGE(dst, offset, src)) =
@@ -641,13 +647,13 @@ function clause execute (JGE(dst, offset, src)) =
 /* EBPF_OP_JLT_IMM */
 union clause ast = JLTIMM : (regbits, bits(32), bits(16))
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b10100101) =
   Some(JLTIMM(dst, imm, offset))
 
 function clause execute (JLTIMM(dst, imm, offset)) =
   {
     let opA = X(dst);
-    let imm_ext : xlenbits = EXTS(imm);
+    let imm_ext : xlenbits = EXTZ(imm);
     if opA <_u imm_ext then 
       PC = PC + EXTS(offset);
   } 
@@ -655,7 +661,7 @@ function clause execute (JLTIMM(dst, imm, offset)) =
 /* EBPF_OP_JLT_REG */
 union clause ast = JLT : (regbits, bits(16), regbits)
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b10101101) =
   Some(JLT(dst, offset, src))
 
 function clause execute (JLT(dst, offset, src)) =
@@ -669,13 +675,13 @@ function clause execute (JLT(dst, offset, src)) =
 /* EBPF_OP_JLE_IMM */
 union clause ast = JLEIMM : (regbits, bits(32), bits(16))
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b10110101) =
   Some(JLEIMM(dst, imm, offset))
 
 function clause execute (JLEIMM(dst, imm, offset)) =
   {
     let opA = X(dst);
-    let imm_ext : xlenbits = EXTS(imm);
+    let imm_ext : xlenbits = EXTZ(imm);
     if opA <=_u imm_ext then 
       PC = PC + EXTS(offset);
   } 
@@ -683,7 +689,7 @@ function clause execute (JLEIMM(dst, imm, offset)) =
 /* EBPF_OP_JLE_REG */
 union clause ast = JLE : (regbits, bits(16), regbits)
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b10111101) =
   Some(JLE(dst, offset, src))
 
 function clause execute (JLE(dst, offset, src)) =
@@ -697,7 +703,7 @@ function clause execute (JLE(dst, offset, src)) =
 /* EBPF_OP_JSET_IMM */
 union clause ast = JSETIMM : (regbits, bits(32), bits(16))
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01000101) =
   Some(JSETIMM(dst, imm, offset))
 
 function clause execute (JSETIMM(dst, imm, offset)) =
@@ -712,7 +718,7 @@ function clause execute (JSETIMM(dst, imm, offset)) =
 /* EBPF_OP_JSET_REG */
 union clause ast = JSET : (regbits, bits(16), regbits)
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01001101) =
   Some(JSET(dst, offset, src))
 
 function clause execute (JSET(dst, offset, src)) =
@@ -726,7 +732,7 @@ function clause execute (JSET(dst, offset, src)) =
   /* EBPF_OP_JNE_IMM */
 union clause ast = JNEIMM : (regbits, bits(32), bits(16))
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01010101) =
   Some(JNEIMM(dst, imm, offset))
 
 function clause execute (JNEIMM(dst, imm, offset)) =
@@ -740,7 +746,7 @@ function clause execute (JNEIMM(dst, imm, offset)) =
 /* EBPF_OP_JNE_REG */
 union clause ast = JNE : (regbits, bits(16), regbits)
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01011101) =
   Some(JNE(dst, offset, src))
 
 function clause execute (JNE(dst, offset, src)) =
@@ -754,7 +760,7 @@ function clause execute (JNE(dst, offset, src)) =
   /* EBPF_OP_JSGT_IMM */
 union clause ast = JSGTIMM : (regbits, bits(32), bits(16))
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01100101) =
   Some(JSGTIMM(dst, imm, offset))
 
 function clause execute (JSGTIMM(dst, imm, offset)) =
@@ -768,7 +774,7 @@ function clause execute (JSGTIMM(dst, imm, offset)) =
 /* EBPF_OP_JSGT_REG */
 union clause ast = JSGT : (regbits, bits(16), regbits)
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01101101) =
   Some(JSGT(dst, offset, src))
 
 function clause execute (JSGT(dst, offset, src)) =
@@ -782,7 +788,7 @@ function clause execute (JSGT(dst, offset, src)) =
   /* EBPF_OP_JSGE_IMM */
 union clause ast = JSGEIMM : (regbits, bits(32), bits(16))
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01110101) =
   Some(JSGEIMM(dst, imm, offset))
 
 function clause execute (JSGEIMM(dst, imm, offset)) =
@@ -796,7 +802,7 @@ function clause execute (JSGEIMM(dst, imm, offset)) =
 /* EBPF_OP_JSGE_REG */
 union clause ast = JSGE : (regbits, bits(16), regbits)
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01111101) =
   Some(JSGE(dst, offset, src))
 
 function clause execute (JSGE(dst, offset, src)) =
@@ -810,7 +816,7 @@ function clause execute (JSGE(dst, offset, src)) =
   /* EBPF_OP_JSLT_IMM */
 union clause ast = JSLTIMM : (regbits, bits(32), bits(16))
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11000101) =
   Some(JSLTIMM(dst, imm, offset))
 
 function clause execute (JSLTIMM(dst, imm, offset)) =
@@ -824,7 +830,7 @@ function clause execute (JSLTIMM(dst, imm, offset)) =
 /* EBPF_OP_JSLT_REG */
 union clause ast = JSLT : (regbits, bits(16), regbits)
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001101) =
   Some(JSLT(dst, offset, src))
 
 function clause execute (JSLT(dst, offset, src)) =
@@ -838,7 +844,7 @@ function clause execute (JSLT(dst, offset, src)) =
   /* EBPF_OP_JSLE_IMM */
 union clause ast = JSLEIMM : (regbits, bits(32), bits(16))
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11010101) =
   Some(JSLEIMM(dst, imm, offset))
 
 function clause execute (JSLEIMM(dst, imm, offset)) =
@@ -852,7 +858,7 @@ function clause execute (JSLEIMM(dst, imm, offset)) =
 /* EBPF_OP_JSLE_REG */
 union clause ast = JSLE : (regbits, bits(16), regbits)
 
-function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11011101) =
   Some(JSLE(dst, offset, src))
 
 function clause execute (JSLE(dst, offset, src)) =
@@ -864,16 +870,285 @@ function clause execute (JSLE(dst, offset, src)) =
   } 
 
   /* EBPF_OP_EXIT */
-// union clause ast = EXIT : (regbits, bits(16), regbits)
+union clause ast = EXIT : unit
 
-// function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b11001111) =
-//   Some(EXIT(dst, offset, src))
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b10010101) =
+  Some(EXIT())
 
-// function clause execute (EXIT(dst, offset, src)) =
-//   {
-//     let opA = X(dst);
-//     let opB = X(src);
-//     if opA <=_s opB then 
-//       PC = PC + EXTS(offset);
-//   } 
+function clause execute (EXIT()) =
+  {
+    ()
+  } 
 
+val MEMr = { lem: "MEMr", coq: "MEMr", _ : "read_ram" } : forall 'n 'm, 'n >= 0.
+   (atom('m), int('n), bits('m), bits('m)) -> bits(8 * 'n) effect {rmem}
+
+val read_mem : forall 'n, 'n >= 0. (xlenbits, int('n)) -> bits(8 * 'n) effect {rmem}
+function read_mem(addr, width) =
+    MEMr(sizeof(xlen), width, EXTZ(0x0), addr)
+
+
+/* EBPF_OP_LDXW */
+union clause ast = LDXW : (regbits, bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01100001) =
+  Some(LDXW(dst, offset))
+
+function clause execute (LDXW(dst,offset)) =
+  {
+    let opA = X(dst);
+    let opB : xlenbits = EXTS(offset);
+    let addr : xlenbits = opA + opB;
+    let result = read_mem(addr, 4);
+    X(dst) = EXTZ(result)
+  } 
+
+/* EBPF_OP_LDXH */
+union clause ast = LDXH : (regbits, bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01101001) =
+  Some(LDXH(dst, offset))
+
+function clause execute (LDXH(dst,offset)) =
+  {
+    let opA = X(dst);
+    let opB : xlenbits = EXTS(offset);
+    let addr : xlenbits = opA + opB;
+    let result = read_mem(addr, 2);
+    X(dst) = EXTZ(result)
+  } 
+
+  /* EBPF_OP_LDXB */
+union clause ast = LDXB : (regbits, bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01110001) =
+  Some(LDXB(dst, offset))
+
+function clause execute (LDXB(dst,offset)) =
+  {
+    let opA = X(dst);
+    let opB : xlenbits = EXTS(offset);
+    let addr : xlenbits = opA + opB;
+    let result = read_mem(addr, 1);
+    X(dst) = EXTZ(result)
+  } 
+
+    /* EBPF_OP_LDXDW */
+union clause ast = LDXDW : (regbits, bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01111001) =
+  Some(LDXDW(dst, offset))
+
+function clause execute (LDXDW(dst,offset)) =
+  {
+    let opA = X(dst);
+    let opB : xlenbits = EXTS(offset);
+    let addr : xlenbits = opA + opB;
+    let result = read_mem(addr, 8);
+    X(dst) = EXTZ(result)
+  } 
+
+
+val MEMw = "write_ram" : forall 'n 'm.
+  (atom('m), atom('n), bits('m), bits('m), bits(8 * 'n)) -> bool effect {wmv}
+
+val write_mem : forall 'n. (bits(64), atom('n), bits(8 * 'n)) -> unit effect {wmv}
+function write_mem (addr, width, data) = 
+    let _ =MEMw(sizeof(xlen), width, EXTZ(0x0), addr, data) in ()
+
+
+/* EBPF_OP_STW */
+union clause ast = STW : (regbits, bits(32), bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01100010) =
+  Some(STW(dst,imm, offset))
+
+function clause execute (STW(dst,imm,offset)) =
+  {
+    let opA = X(dst);
+    let opB : xlenbits = EXTS(offset);
+    let addr : xlenbits = opA + opB;
+    write_mem(addr, 4) = imm
+  } 
+
+  /* EBPF_OP_STH */
+union clause ast = STH : (regbits, bits(32), bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01101010) =
+  Some(STH(dst,imm, offset))
+
+function clause execute (STH(dst,imm,offset)) =
+  {
+    let opA = X(dst);
+    let opB : xlenbits = EXTS(offset);
+    let addr : xlenbits = opA + opB;
+    write_mem(addr, 2) = imm[15..0]
+  } 
+
+  /* EBPF_OP_STB */
+union clause ast = STB : (regbits, bits(32), bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01110010) =
+  Some(STB(dst,imm, offset))
+
+function clause execute (STB(dst,imm,offset)) =
+  {
+    let opA = X(dst);
+    let opB : xlenbits = EXTS(offset);
+    let addr : xlenbits = opA + opB;
+    write_mem(addr, 1) = imm[7..0]
+  } 
+
+  /* EBPF_OP_STDW */
+union clause ast = STDW : (regbits, bits(32), bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01111010) =
+  Some(STDW(dst,imm, offset))
+
+function clause execute (STDW(dst,imm,offset)) =
+  {
+    let opA = X(dst);
+    let opB : xlenbits = EXTS(offset);
+    let addr : xlenbits = opA + opB;
+    write_mem(addr, 8) = EXTZ(imm)
+  } 
+
+/* EBPF_OP_STXW */
+union clause ast = STXW : (regbits, regbits, bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01100011) =
+  Some(STXW(dst,src, offset))
+
+function clause execute (STXW(dst,src,offset)) =
+  {
+    let opA = X(dst);
+    let opB : xlenbits = EXTS(offset);
+    let addr : xlenbits = opA + opB;
+    write_mem(addr, 4) = X(src)[31..0]
+  } 
+
+/* EBPF_OP_STXH */
+union clause ast = STXH : (regbits, regbits, bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01101011) =
+  Some(STXH(dst,src, offset))
+
+function clause execute (STXH(dst,src,offset)) =
+  {
+    let opA = X(dst);
+    let opB : xlenbits = EXTS(offset);
+    let addr : xlenbits = opA + opB;
+    write_mem(addr, 2) = X(src)[15..0]
+  } 
+
+/* EBPF_OP_STXB */
+union clause ast = STXB : (regbits, regbits, bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01110011) =
+  Some(STXB(dst,src, offset))
+
+function clause execute (STXB(dst,src,offset)) =
+  {
+    let opA = X(dst);
+    let opB : xlenbits = EXTS(offset);
+    let addr : xlenbits = opA + opB;
+    write_mem(addr, 1) = X(src)[7..0]
+  } 
+
+  /* EBPF_OP_STXDW */
+union clause ast = STXDW : (regbits, regbits, bits(16))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b01111011) =
+  Some(STXDW(dst,src, offset))
+
+function clause execute (STXDW(dst,src,offset)) =
+  {
+    let opA = X(dst);
+    let opB : xlenbits = EXTS(offset);
+    let addr : xlenbits = opA + opB;
+    write_mem(addr, 8) = X(src)
+  } 
+
+    /* EBPF_OP_LDDW */
+union clause ast = LDDW : (regbits, bits(32))
+
+function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst : regbits @ 0b00011000) =
+  Some(LDDW(dst,imm))
+
+function clause execute (LDDW(dst,imm)) =
+  {
+    let opB : xlenbits = EXTZ(imm);
+    let pc_pa = read_mem(nextPC,8);
+    let next_imm : xlenbits = (EXTZ(pc_pa[63..32])) << 32;
+    let result = opB | next_imm;
+    X(dst) = result;
+  } 
+
+
+
+
+
+
+
+
+  /* Main function*/
+
+register InstCount : int
+val fetch_and_execute : unit -> bool effect {barr, eamem, escape, rmem, rreg, wmv, wreg, undef, wmvt, rmemt}
+function fetch_and_execute () = {
+  PC = nextPC;
+  nextPC = PC + 8;
+  loop_again : bool = true;
+    InstCount = InstCount + 1;
+    /*print_bits("pa: ", pc_pa);*/
+    let instr_next = read_mem(PC,8);
+    let instr_ast = decode(instr_next);
+    match instr_ast {
+      Some(EXIT()) => {
+                     print("simulation stopped due to halt instruction.");
+                     loop_again = false
+                   },
+      Some(ast) => {
+
+                execute(ast)
+      },
+      None()    => { print("Decode failed"); loop_again=false } 
+    };
+  loop_again
+}
+
+val elf_entry = {
+  ocaml: "Elf_loader.elf_entry",
+  lem: "elf_entry",
+  c: "elf_entry"
+} : unit -> int
+
+val init_registers : bits(64) -> unit effect {wreg, escape}
+
+function init_registers (initialPC) = {
+//   init_cp0_state();
+//   init_cp2_state();
+  nextPC = initialPC;
+}
+
+val main : unit -> unit effect {barr, eamem, escape, rmem, rreg, undef, wmv, wreg, rmemt, wmvt}
+
+function main () = {
+  init_registers(to_bits(64, elf_entry()));
+  while (fetch_and_execute()) do {
+    /* uncomment to print IPS every 10M instructions (~10s) 
+    intervalCount = intervalCount + 1;
+    if (intervalCount == 10000000) then {
+      endTime = get_time_ns();
+      elapsed = endTime - intervalStart;
+      inst_1e9 = intervalCount * 1000000000;
+      ips = inst_1e9 / elapsed;
+      print_int("*IPS*: ", ips);
+      intervalStart = get_time_ns();
+      intervalCount = 0;
+    };
+    */
+    ();
+  };
+  print_int("Executed instructions: ", InstCount);
+}
