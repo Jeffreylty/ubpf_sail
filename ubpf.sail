@@ -135,6 +135,8 @@ scattered union ast
 
 val decode : bits(64) -> option(ast) effect pure
 
+scattered function decode
+
 val execute : ast -> unit effect {rreg, wreg,rmem, wmv}
 val MAX : forall 'n, 'n >= 0 . atom('n) -> atom(2 ^ 'n - 1) effect pure
 
@@ -1094,26 +1096,26 @@ function clause execute (LDDW(dst,imm)) =
   /* Main function*/
 
 register InstCount : int
-val fetch_and_execute : unit -> bool effect {barr, eamem, escape, rmem, rreg, wmv, wreg, undef, wmvt, rmemt}
+val fetch_and_execute : unit -> bool effect {rmem, rreg, wmv, wreg}
 function fetch_and_execute () = {
   PC = nextPC;
   nextPC = PC + 8;
   loop_again : bool = true;
     InstCount = InstCount + 1;
-    /*print_bits("pa: ", pc_pa);*/
-    let instr_next = read_mem(PC,8);
+    let instr_next : xlenbits = read_mem(PC,8);
+    print_bits("instruction: ", instr_next);
     let instr_ast = decode(instr_next);
     match instr_ast {
       Some(EXIT()) => {
-                     print("simulation stopped due to halt instruction.");
+                     print("simulation stopped due to exit instruction.");
                      loop_again = false
                    },
       Some(ast) => {
-
                 execute(ast)
       },
       None()    => { print("Decode failed"); loop_again=false } 
     };
+    、、if(InstCount >=1000) then loop_again = false;
   loop_again
 }
 
@@ -1123,32 +1125,43 @@ val elf_entry = {
   c: "elf_entry"
 } : unit -> int
 
-val init_registers : bits(64) -> unit effect {wreg, escape}
+val init_registers : bits(64) -> unit effect {wreg}
 
 function init_registers (initialPC) = {
-//   init_cp0_state();
-//   init_cp2_state();
   nextPC = initialPC;
 }
 
-val main : unit -> unit effect {barr, eamem, escape, rmem, rreg, undef, wmv, wreg, rmemt, wmvt}
+
+
+
+val string_of_int = "string_of_int" : int -> string
+val BitStr = "string_of_bits" : forall 'n. bits('n) -> string
+
+val print_reg : unit -> unit effect {rreg}
+function print_reg () ={
+  foreach (idx from 0 to 11) {
+    print(concat_str("DEBUG REG ", concat_str(string_of_int(idx), concat_str(" ", BitStr(X(to_bits(4,idx)))))));
+  }
+}
+
+val main : unit -> unit effect {rmem, rreg, wmv, wreg}
 
 function main () = {
   init_registers(to_bits(64, elf_entry()));
   while (fetch_and_execute()) do {
-    /* uncomment to print IPS every 10M instructions (~10s) 
-    intervalCount = intervalCount + 1;
-    if (intervalCount == 10000000) then {
-      endTime = get_time_ns();
-      elapsed = endTime - intervalStart;
-      inst_1e9 = intervalCount * 1000000000;
-      ips = inst_1e9 / elapsed;
-      print_int("*IPS*: ", ips);
-      intervalStart = get_time_ns();
-      intervalCount = 0;
-    };
-    */
+    //print_reg();
     ();
   };
   print_int("Executed instructions: ", InstCount);
+    
+}
+
+
+
+
+union clause ast = Reserved : unit
+function clause decode _ = Some(Reserved())
+function clause execute (Reserved()) =
+{
+  print("Unknowned instruction");
 }
