@@ -216,12 +216,12 @@ union clause ast = MULI : (regbits, bits(32))
 
 function clause decode (imm : bits(32) @ 0b0000000000000000 @ rs : regbits @ rd : regbits @ 0b00100111) = Some(MULI(rd,imm))
 
-function clause execute (MULI(rt,imm)) =
+function clause execute (MULI(rd,imm)) =
   {
-    let rt1_val = X(rt) in
+    let rt1_val = X(rd) in
     let imm_ext : xlenbits = EXTS(imm) in
     let result = rt1_val *_u imm_ext in
-    X(rt) = result[63..0]
+    X(rd) = result[63..0]
   }
 
 /* EBPF_OP_MUL64_REG instruction */
@@ -500,7 +500,7 @@ function clause decode (imm : bits(32) @ 0b0000000000000000 @ 0b0000 @ dst : reg
 
 function clause execute (MOVI(dst,imm)) =
   {
-    let imm_ext : xlenbits = EXTS(imm) in
+    let imm_ext : xlenbits = EXTZ(imm) in
     X(dst) = imm_ext
   } 
 
@@ -558,7 +558,7 @@ function clause decode (imm : bits(32) @ offset : bits(16) @ 0b0000 @ 0b0000 @ 0
 
 function clause execute (JA(offset)) =
   {
-    PC = PC + EXTS(offset);
+    nextPC = nextPC + EXTS(offset );
   } 
 
 /* EBPF_OP_JEQ_IMM */
@@ -572,7 +572,7 @@ function clause execute (JEQIMM(dst, imm, offset)) =
     let opA = X(dst);
     let imm_ext : xlenbits = EXTZ(imm);
     if opA == imm_ext then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset );
   } 
 
 
@@ -587,7 +587,7 @@ function clause execute (JEQ(dst, offset, src)) =
     let opA = X(dst);
     let opB = X(src);
     if opA == opB then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset );
   } 
 
 /* EBPF_OP_JGT_IMM */
@@ -601,7 +601,7 @@ function clause execute (JGTIMM(dst, imm, offset)) =
     let opA = X(dst);
     let imm_ext : xlenbits = EXTZ(imm);
     if opA >_u imm_ext then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset );
   } 
 
 /* EBPF_OP_JGT_REG */
@@ -615,7 +615,7 @@ function clause execute (JGT(dst, offset, src)) =
     let opA = X(dst);
     let opB = X(src);
     if opA  >_u opB then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset );
   } 
 
 /* EBPF_OP_JGE_IMM */
@@ -629,7 +629,7 @@ function clause execute (JGEIMM(dst, imm, offset)) =
     let opA = X(dst);
     let imm_ext : xlenbits = EXTZ(imm);
     if opA >=_u imm_ext then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset );
   } 
 
 /* EBPF_OP_JGE_REG */
@@ -643,7 +643,7 @@ function clause execute (JGE(dst, offset, src)) =
     let opA = X(dst);
     let opB = X(src);
     if opA  >=_u opB then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset );
   } 
 
 /* EBPF_OP_JLT_IMM */
@@ -657,7 +657,7 @@ function clause execute (JLTIMM(dst, imm, offset)) =
     let opA = X(dst);
     let imm_ext : xlenbits = EXTZ(imm);
     if opA <_u imm_ext then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset );
   } 
 
 /* EBPF_OP_JLT_REG */
@@ -671,7 +671,7 @@ function clause execute (JLT(dst, offset, src)) =
     let opA = X(dst);
     let opB = X(src);
     if opA  <_u opB then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
 /* EBPF_OP_JLE_IMM */
@@ -685,7 +685,7 @@ function clause execute (JLEIMM(dst, imm, offset)) =
     let opA = X(dst);
     let imm_ext : xlenbits = EXTZ(imm);
     if opA <=_u imm_ext then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
 /* EBPF_OP_JLE_REG */
@@ -699,7 +699,7 @@ function clause execute (JLE(dst, offset, src)) =
     let opA = X(dst);
     let opB = X(src);
     if opA  <=_u opB then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
 /* EBPF_OP_JSET_IMM */
@@ -714,7 +714,7 @@ function clause execute (JSETIMM(dst, imm, offset)) =
     let imm_ext : xlenbits = EXTS(imm);
     let result = (opA & imm_ext);
     if unsigned(opA & imm_ext) != 0 then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
 /* EBPF_OP_JSET_REG */
@@ -728,7 +728,7 @@ function clause execute (JSET(dst, offset, src)) =
     let opA = X(dst);
     let opB = X(src);
     if unsigned(opA & opB) != 0 then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
   /* EBPF_OP_JNE_IMM */
@@ -740,9 +740,9 @@ function clause decode (imm : bits(32) @ offset : bits(16) @ src : regbits @ dst
 function clause execute (JNEIMM(dst, imm, offset)) =
   {
     let opA = X(dst);
-    let imm_ext : xlenbits = EXTS(imm);
+    let imm_ext : xlenbits = EXTZ(imm);
     if opA != imm_ext then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
 /* EBPF_OP_JNE_REG */
@@ -756,7 +756,7 @@ function clause execute (JNE(dst, offset, src)) =
     let opA = X(dst);
     let opB = X(src);
     if opA  != opB then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
   /* EBPF_OP_JSGT_IMM */
@@ -770,7 +770,7 @@ function clause execute (JSGTIMM(dst, imm, offset)) =
     let opA = X(dst);
     let imm_ext : xlenbits = EXTS(imm);
     if opA >_s imm_ext then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
 /* EBPF_OP_JSGT_REG */
@@ -784,7 +784,7 @@ function clause execute (JSGT(dst, offset, src)) =
     let opA = X(dst);
     let opB = X(src);
     if opA >_s opB then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
   /* EBPF_OP_JSGE_IMM */
@@ -798,7 +798,7 @@ function clause execute (JSGEIMM(dst, imm, offset)) =
     let opA = X(dst);
     let imm_ext : xlenbits = EXTS(imm);
     if opA >=_s imm_ext then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
 /* EBPF_OP_JSGE_REG */
@@ -812,7 +812,7 @@ function clause execute (JSGE(dst, offset, src)) =
     let opA = X(dst);
     let opB = X(src);
     if opA >=_s opB then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
   /* EBPF_OP_JSLT_IMM */
@@ -826,7 +826,7 @@ function clause execute (JSLTIMM(dst, imm, offset)) =
     let opA = X(dst);
     let imm_ext : xlenbits = EXTS(imm);
     if opA <_s imm_ext then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
 /* EBPF_OP_JSLT_REG */
@@ -840,7 +840,7 @@ function clause execute (JSLT(dst, offset, src)) =
     let opA = X(dst);
     let opB = X(src);
     if opA <_s opB then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
   /* EBPF_OP_JSLE_IMM */
@@ -854,7 +854,7 @@ function clause execute (JSLEIMM(dst, imm, offset)) =
     let opA = X(dst);
     let imm_ext : xlenbits = EXTS(imm);
     if opA <=_s imm_ext then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
 /* EBPF_OP_JSLE_REG */
@@ -868,7 +868,7 @@ function clause execute (JSLE(dst, offset, src)) =
     let opA = X(dst);
     let opB = X(src);
     if opA <=_s opB then 
-      PC = PC + EXTS(offset);
+      nextPC = nextPC + EXTS(offset);
   } 
 
   /* EBPF_OP_EXIT */
@@ -1083,6 +1083,7 @@ function clause execute (LDDW(dst,imm)) =
     let pc_pa = read_mem(nextPC,8);
     let next_imm : xlenbits = (EXTZ(pc_pa[63..32])) << 32;
     let result = opB | next_imm;
+    nextPC = nextPC+1;
     X(dst) = result;
   } 
 
@@ -1099,10 +1100,10 @@ register InstCount : int
 val fetch_and_execute : unit -> bool effect {rmem, rreg, wmv, wreg}
 function fetch_and_execute () = {
   PC = nextPC;
-  nextPC = PC + 8;
+  nextPC = PC + 1;
   loop_again : bool = true;
     InstCount = InstCount + 1;
-    let instr_next : xlenbits = read_mem(PC,8);
+    let instr_next : xlenbits = read_mem(PC<<0b11,8);
     print_bits("instruction: ", instr_next);
     let instr_ast = decode(instr_next);
     match instr_ast {
@@ -1115,7 +1116,7 @@ function fetch_and_execute () = {
       },
       None()    => { print("Decode failed"); loop_again=false } 
     };
-    、、if(InstCount >=1000) then loop_again = false;
+    //if(InstCount >=200) then loop_again = false;
   loop_again
 }
 
@@ -1153,6 +1154,7 @@ function main () = {
     ();
   };
   print_int("Executed instructions: ", InstCount);
+  print_reg();
     
 }
 
@@ -1165,3 +1167,4 @@ function clause execute (Reserved()) =
 {
   print("Unknowned instruction");
 }
+
